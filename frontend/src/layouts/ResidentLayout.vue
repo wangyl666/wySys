@@ -38,7 +38,6 @@
           <span>个人中心</span>
         </el-menu-item>
       </el-menu>
-    </el-menu>
     </el-aside>
     <el-container>
       <el-header class="layout-header">
