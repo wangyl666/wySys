@@ -212,21 +212,48 @@ router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
   const userRole = localStorage.getItem('userRole')
   
-  if (to.meta.requiresAuth) {
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const requiredRole = to.matched.find(record => record.meta.role)?.meta.role
+  
+  if (requiresAuth) {
     if (!token) {
+      if (to.path === '/login') {
+        next()
+        return
+      }
       next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
     
-    if (to.meta.role && to.meta.role !== userRole) {
-      if (userRole === 'RESIDENT') {
-        next('/resident/home')
-      } else if (userRole === 'PROPERTY' || userRole === 'ADMIN') {
-        next('/property/home')
-      } else {
-        next('/login')
+    if (requiredRole) {
+      let isAllowed = false
+      if (requiredRole === 'RESIDENT') {
+        isAllowed = userRole === 'RESIDENT'
+      } else if (requiredRole === 'PROPERTY') {
+        isAllowed = userRole === 'PROPERTY' || userRole === 'ADMIN'
       }
-      return
+      
+      if (!isAllowed) {
+        if (userRole === 'RESIDENT') {
+          if (to.path === '/resident/home' || to.path === '/resident') {
+            next()
+            return
+          }
+          next('/resident/home')
+        } else if (userRole === 'PROPERTY' || userRole === 'ADMIN') {
+          if (to.path === '/property/home' || to.path === '/property') {
+            next()
+            return
+          }
+          next('/property/home')
+        } else {
+          localStorage.removeItem('token')
+          localStorage.removeItem('userRole')
+          localStorage.removeItem('userInfo')
+          next('/login')
+        }
+        return
+      }
     }
     
     if (!userStore.userInfo || !userStore.userInfo.id) {
@@ -235,10 +262,37 @@ router.beforeEach(async (to, from, next) => {
       } catch (error) {
         localStorage.removeItem('token')
         localStorage.removeItem('userRole')
+        localStorage.removeItem('userInfo')
         next({ path: '/login', query: { redirect: to.fullPath } })
         return
       }
     }
+  }
+  
+  if (to.path === '/login' && token) {
+    if (userRole === 'RESIDENT') {
+      next('/resident/home')
+    } else if (userRole === 'PROPERTY' || userRole === 'ADMIN') {
+      next('/property/home')
+    } else {
+      next()
+    }
+    return
+  }
+  
+  if (to.path === '/') {
+    if (token) {
+      if (userRole === 'RESIDENT') {
+        next('/resident/home')
+      } else if (userRole === 'PROPERTY' || userRole === 'ADMIN') {
+        next('/property/home')
+      } else {
+        next('/login')
+      }
+    } else {
+      next('/login')
+    }
+    return
   }
   
   next()
