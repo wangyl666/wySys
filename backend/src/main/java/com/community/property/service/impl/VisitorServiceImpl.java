@@ -3,8 +3,10 @@ package com.community.property.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.community.property.entity.House;
 import com.community.property.entity.User;
 import com.community.property.entity.Visitor;
+import com.community.property.mapper.HouseMapper;
 import com.community.property.mapper.UserMapper;
 import com.community.property.mapper.VisitorMapper;
 import com.community.property.service.VisitorService;
@@ -15,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -23,6 +27,7 @@ import java.util.List;
 public class VisitorServiceImpl extends ServiceImpl<VisitorMapper, Visitor> implements VisitorService {
 
     private final UserMapper userMapper;
+    private final HouseMapper houseMapper;
 
     @Override
     public Page<Visitor> pageByCondition(Integer current, Integer size, Long userId, String status, String visitorName) {
@@ -30,6 +35,55 @@ public class VisitorServiceImpl extends ServiceImpl<VisitorMapper, Visitor> impl
         if (userId != null) {
             wrapper.eq(Visitor::getUserId, userId);
         }
+        if (StringUtils.hasText(status)) {
+            wrapper.eq(Visitor::getStatus, status);
+        }
+        if (StringUtils.hasText(visitorName)) {
+            wrapper.like(Visitor::getVisitorName, visitorName);
+        }
+        wrapper.orderByDesc(Visitor::getCreateTime);
+        
+        Page<Visitor> page = page(new Page<>(current, size), wrapper);
+        fillUserInfo(page.getRecords());
+        return page;
+    }
+
+    @Override
+    public Page<Visitor> pageByConditionWithBuildingAccess(Integer current, Integer size, Long userId, String status, String visitorName, List<String> allowedBuildingNos) {
+        if (allowedBuildingNos == null || allowedBuildingNos.isEmpty()) {
+            Page<Visitor> emptyPage = new Page<>(current, size);
+            emptyPage.setRecords(Collections.emptyList());
+            return emptyPage;
+        }
+        
+        List<House> houses = houseMapper.selectList(
+            new LambdaQueryWrapper<House>()
+                .in(House::getBuildingNo, allowedBuildingNos)
+        );
+        
+        if (houses.isEmpty()) {
+            Page<Visitor> emptyPage = new Page<>(current, size);
+            emptyPage.setRecords(Collections.emptyList());
+            return emptyPage;
+        }
+        
+        List<Long> userIdsFromHouses = houses.stream()
+            .map(House::getUserId)
+            .distinct()
+            .collect(Collectors.toList());
+        
+        LambdaQueryWrapper<Visitor> wrapper = new LambdaQueryWrapper<>();
+        
+        if (userId != null) {
+            if (userIdsFromHouses.contains(userId)) {
+                wrapper.eq(Visitor::getUserId, userId);
+            } else {
+                wrapper.eq(Visitor::getId, -1);
+            }
+        } else {
+            wrapper.in(Visitor::getUserId, userIdsFromHouses);
+        }
+        
         if (StringUtils.hasText(status)) {
             wrapper.eq(Visitor::getStatus, status);
         }

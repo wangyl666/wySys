@@ -4,9 +4,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.community.property.entity.Repair;
 
+import java.util.List;
+
 public interface RepairService extends IService<Repair> {
     
     Page<Repair> pageByCondition(Integer current, Integer size, Long userId, String status, String type);
+    
+    Page<Repair> pageByConditionWithBuildingAccess(Integer current, Integer size, Long userId, String status, String type, List<String> allowedBuildingNos);
     
     Page<Repair> pageByStaff(Integer current, Integer size, Long staffId, String status);
     

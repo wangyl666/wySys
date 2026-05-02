@@ -22,7 +22,9 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,6 +41,66 @@ public class FeeBillServiceImpl extends ServiceImpl<FeeBillMapper, FeeBill> impl
         if (userId != null) {
             wrapper.eq(FeeBill::getUserId, userId);
         }
+        if (StringUtils.hasText(billMonth)) {
+            wrapper.eq(FeeBill::getBillMonth, billMonth);
+        }
+        if (StringUtils.hasText(status)) {
+            wrapper.eq(FeeBill::getStatus, status);
+        }
+        if (feeTypeId != null) {
+            wrapper.eq(FeeBill::getFeeTypeId, feeTypeId);
+        }
+        wrapper.orderByDesc(FeeBill::getCreateTime);
+        
+        Page<FeeBill> page = page(new Page<>(current, size), wrapper);
+        fillExtraInfo(page.getRecords());
+        return page;
+    }
+
+    @Override
+    public Page<FeeBill> pageByConditionWithBuildingAccess(Integer current, Integer size, Long userId, String billMonth, String status, Long feeTypeId, List<String> allowedBuildingNos) {
+        if (allowedBuildingNos == null || allowedBuildingNos.isEmpty()) {
+            Page<FeeBill> emptyPage = new Page<>(current, size);
+            emptyPage.setRecords(Collections.emptyList());
+            return emptyPage;
+        }
+        
+        List<House> houses = houseMapper.selectList(
+            new LambdaQueryWrapper<House>()
+                .in(House::getBuildingNo, allowedBuildingNos)
+        );
+        
+        if (houses.isEmpty()) {
+            Page<FeeBill> emptyPage = new Page<>(current, size);
+            emptyPage.setRecords(Collections.emptyList());
+            return emptyPage;
+        }
+        
+        List<Long> userIdsFromHouses = houses.stream()
+            .map(House::getUserId)
+            .distinct()
+            .collect(Collectors.toList());
+        
+        List<Long> houseIdsFromHouses = houses.stream()
+            .map(House::getId)
+            .distinct()
+            .collect(Collectors.toList());
+        
+        LambdaQueryWrapper<FeeBill> wrapper = new LambdaQueryWrapper<>();
+        
+        if (userId != null) {
+            if (userIdsFromHouses.contains(userId)) {
+                wrapper.eq(FeeBill::getUserId, userId);
+            } else {
+                wrapper.eq(FeeBill::getId, -1);
+            }
+        } else {
+            wrapper.and(w -> w
+                .in(FeeBill::getUserId, userIdsFromHouses)
+                .or().in(FeeBill::getHouseId, houseIdsFromHouses)
+            );
+        }
+        
         if (StringUtils.hasText(billMonth)) {
             wrapper.eq(FeeBill::getBillMonth, billMonth);
         }

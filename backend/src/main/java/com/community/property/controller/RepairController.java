@@ -3,6 +3,8 @@ package com.community.property.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.community.property.common.Result;
 import com.community.property.entity.Repair;
+import com.community.property.entity.User;
+import com.community.property.service.BuildingService;
 import com.community.property.service.RepairService;
 import com.community.property.service.UserService;
 import io.swagger.annotations.Api;
@@ -10,6 +12,8 @@ import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Api(tags = "物业报修接口")
 @RestController
@@ -19,6 +23,7 @@ public class RepairController {
 
     private final RepairService repairService;
     private final UserService userService;
+    private final BuildingService buildingService;
 
     @ApiOperation("分页查询报修列表（居民端）")
     @GetMapping("/page/my")
@@ -41,8 +46,20 @@ public class RepairController {
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type) {
-        Page<Repair> page = repairService.pageByCondition(current, size, userId, status, type);
-        return Result.success(page);
+        User currentUser = userService.getCurrentUser();
+        
+        if (currentUser == null) {
+            return Result.error("用户不存在");
+        }
+        
+        if ("ADMIN".equals(currentUser.getRole())) {
+            Page<Repair> page = repairService.pageByCondition(current, size, userId, status, type);
+            return Result.success(page);
+        } else {
+            List<String> allowedBuildingNos = buildingService.getBuildingNosByStaffId(currentUser.getId());
+            Page<Repair> page = repairService.pageByConditionWithBuildingAccess(current, size, userId, status, type, allowedBuildingNos);
+            return Result.success(page);
+        }
     }
 
     @ApiOperation("根据ID获取报修详情")

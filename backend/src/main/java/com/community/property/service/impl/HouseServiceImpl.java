@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -35,10 +36,44 @@ public class HouseServiceImpl extends ServiceImpl<HouseMapper, House> implements
     }
 
     @Override
+    public Page<House> pageByConditionWithBuildingAccess(Integer current, Integer size, Long userId, String buildingNo, String unitNo, List<String> allowedBuildingNos) {
+        LambdaQueryWrapper<House> wrapper = new LambdaQueryWrapper<>();
+        
+        if (allowedBuildingNos != null && !allowedBuildingNos.isEmpty()) {
+            wrapper.in(House::getBuildingNo, allowedBuildingNos);
+        } else {
+            wrapper.eq(House::getId, -1);
+        }
+        
+        if (userId != null) {
+            wrapper.eq(House::getUserId, userId);
+        }
+        if (StringUtils.hasText(buildingNo)) {
+            wrapper.eq(House::getBuildingNo, buildingNo);
+        }
+        if (StringUtils.hasText(unitNo)) {
+            wrapper.eq(House::getUnitNo, unitNo);
+        }
+        wrapper.orderByDesc(House::getCreateTime);
+        return page(new Page<>(current, size), wrapper);
+    }
+
+    @Override
     public List<House> getByUserId(Long userId) {
         LambdaQueryWrapper<House> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(House::getUserId, userId);
         wrapper.orderByDesc(House::getCreateTime);
+        return list(wrapper);
+    }
+
+    @Override
+    public List<House> getByBuildingNos(List<String> buildingNos) {
+        if (buildingNos == null || buildingNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<House> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(House::getBuildingNo, buildingNos);
+        wrapper.orderByAsc(House::getBuildingNo, House::getUnitNo, House::getRoomNo);
         return list(wrapper);
     }
 }

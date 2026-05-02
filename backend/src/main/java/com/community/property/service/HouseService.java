@@ -10,5 +10,9 @@ public interface HouseService extends IService<House> {
     
     Page<House> pageByCondition(Integer current, Integer size, Long userId, String buildingNo, String unitNo);
     
+    Page<House> pageByConditionWithBuildingAccess(Integer current, Integer size, Long userId, String buildingNo, String unitNo, List<String> allowedBuildingNos);
+    
     List<House> getByUserId(Long userId);
+    
+    List<House> getByBuildingNos(List<String> buildingNos);
 }

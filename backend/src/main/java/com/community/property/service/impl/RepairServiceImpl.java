@@ -5,8 +5,10 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.community.property.entity.House;
 import com.community.property.entity.Repair;
 import com.community.property.entity.User;
+import com.community.property.mapper.HouseMapper;
 import com.community.property.mapper.RepairMapper;
 import com.community.property.mapper.UserMapper;
 import com.community.property.service.RepairService;
@@ -18,7 +20,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -26,6 +30,7 @@ import java.util.List;
 public class RepairServiceImpl extends ServiceImpl<RepairMapper, Repair> implements RepairService {
 
     private final UserMapper userMapper;
+    private final HouseMapper houseMapper;
 
     @Override
     public Page<Repair> pageByCondition(Integer current, Integer size, Long userId, String status, String type) {
@@ -54,6 +59,51 @@ public class RepairServiceImpl extends ServiceImpl<RepairMapper, Repair> impleme
         }
         if (StringUtils.hasText(status)) {
             wrapper.eq(Repair::getStatus, status);
+        }
+        wrapper.orderByDesc(Repair::getCreateTime);
+        
+        Page<Repair> page = page(new Page<>(current, size), wrapper);
+        fillUserInfo(page.getRecords());
+        return page;
+    }
+
+    @Override
+    public Page<Repair> pageByConditionWithBuildingAccess(Integer current, Integer size, Long userId, String status, String type, List<String> allowedBuildingNos) {
+        if (allowedBuildingNos == null || allowedBuildingNos.isEmpty()) {
+            return new Page<>(current, size);
+        }
+        
+        List<House> houses = houseMapper.selectList(
+            new LambdaQueryWrapper<House>()
+                .in(House::getBuildingNo, allowedBuildingNos)
+        );
+        
+        if (houses.isEmpty()) {
+            return new Page<>(current, size);
+        }
+        
+        List<Long> userIdsFromHouses = houses.stream()
+            .map(House::getUserId)
+            .distinct()
+            .collect(Collectors.toList());
+        
+        LambdaQueryWrapper<Repair> wrapper = new LambdaQueryWrapper<>();
+        
+        if (userId != null) {
+            if (userIdsFromHouses.contains(userId)) {
+                wrapper.eq(Repair::getUserId, userId);
+            } else {
+                wrapper.eq(Repair::getId, -1);
+            }
+        } else {
+            wrapper.in(Repair::getUserId, userIdsFromHouses);
+        }
+        
+        if (StringUtils.hasText(status)) {
+            wrapper.eq(Repair::getStatus, status);
+        }
+        if (StringUtils.hasText(type)) {
+            wrapper.eq(Repair::getType, type);
         }
         wrapper.orderByDesc(Repair::getCreateTime);
         

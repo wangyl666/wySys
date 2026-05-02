@@ -11,6 +11,8 @@ public interface FeeBillService extends IService<FeeBill> {
     
     Page<FeeBill> pageByCondition(Integer current, Integer size, Long userId, String billMonth, String status, Long feeTypeId);
     
+    Page<FeeBill> pageByConditionWithBuildingAccess(Integer current, Integer size, Long userId, String billMonth, String status, Long feeTypeId, List<String> allowedBuildingNos);
+    
     Page<FeeBill> pageMyBills(Integer current, Integer size, Long userId, String status);
     
     List<FeeBill> getPendingBills(Long userId);

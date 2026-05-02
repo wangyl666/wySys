@@ -17,6 +17,10 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>工作台</span>
         </el-menu-item>
+        <el-menu-item index="/property/building" v-if="userStore.isAdmin">
+          <el-icon><OfficeBuilding /></el-icon>
+          <span>楼栋管理</span>
+        </el-menu-item>
         <el-sub-menu index="user">
           <template #title>
             <el-icon><User /></el-icon>

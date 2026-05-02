@@ -3,6 +3,8 @@ package com.community.property.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.community.property.common.Result;
 import com.community.property.entity.House;
+import com.community.property.entity.User;
+import com.community.property.service.BuildingService;
 import com.community.property.service.HouseService;
 import com.community.property.service.UserService;
 import io.swagger.annotations.Api;
@@ -21,6 +23,7 @@ public class HouseController {
 
     private final HouseService houseService;
     private final UserService userService;
+    private final BuildingService buildingService;
 
     @ApiOperation("分页查询房屋列表")
     @GetMapping("/page")
@@ -31,8 +34,20 @@ public class HouseController {
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String buildingNo,
             @RequestParam(required = false) String unitNo) {
-        Page<House> page = houseService.pageByCondition(current, size, userId, buildingNo, unitNo);
-        return Result.success(page);
+        User currentUser = userService.getCurrentUser();
+        
+        if (currentUser == null) {
+            return Result.error("用户不存在");
+        }
+        
+        if ("ADMIN".equals(currentUser.getRole())) {
+            Page<House> page = houseService.pageByCondition(current, size, userId, buildingNo, unitNo);
+            return Result.success(page);
+        } else {
+            List<String> allowedBuildingNos = buildingService.getBuildingNosByStaffId(currentUser.getId());
+            Page<House> page = houseService.pageByConditionWithBuildingAccess(current, size, userId, buildingNo, unitNo, allowedBuildingNos);
+            return Result.success(page);
+        }
     }
 
     @ApiOperation("获取当前用户的房屋列表")

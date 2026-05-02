@@ -113,6 +113,12 @@ const routes = [
         meta: { title: '用户管理' }
       },
       {
+        path: 'building',
+        name: 'PropertyBuilding',
+        component: () => import('@/views/property/building/index.vue'),
+        meta: { title: '楼栋管理' }
+      },
+      {
         path: 'house',
         name: 'PropertyHouse',
         component: () => import('@/views/property/house/index.vue'),

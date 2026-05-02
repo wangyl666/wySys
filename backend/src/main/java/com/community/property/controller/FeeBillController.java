@@ -3,6 +3,8 @@ package com.community.property.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.community.property.common.Result;
 import com.community.property.entity.FeeBill;
+import com.community.property.entity.User;
+import com.community.property.service.BuildingService;
 import com.community.property.service.FeeBillService;
 import com.community.property.service.UserService;
 import io.swagger.annotations.Api;
@@ -22,6 +24,7 @@ public class FeeBillController {
 
     private final FeeBillService feeBillService;
     private final UserService userService;
+    private final BuildingService buildingService;
 
     @ApiOperation("分页查询我的账单（居民端）")
     @GetMapping("/page/my")
@@ -59,8 +62,20 @@ public class FeeBillController {
             @RequestParam(required = false) String billMonth,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long feeTypeId) {
-        Page<FeeBill> page = feeBillService.pageByCondition(current, size, userId, billMonth, status, feeTypeId);
-        return Result.success(page);
+        User currentUser = userService.getCurrentUser();
+        
+        if (currentUser == null) {
+            return Result.error("用户不存在");
+        }
+        
+        if ("ADMIN".equals(currentUser.getRole())) {
+            Page<FeeBill> page = feeBillService.pageByCondition(current, size, userId, billMonth, status, feeTypeId);
+            return Result.success(page);
+        } else {
+            List<String> allowedBuildingNos = buildingService.getBuildingNosByStaffId(currentUser.getId());
+            Page<FeeBill> page = feeBillService.pageByConditionWithBuildingAccess(current, size, userId, billMonth, status, feeTypeId, allowedBuildingNos);
+            return Result.success(page);
+        }
     }
 
     @ApiOperation("根据ID获取账单详情")
